@@ -1,0 +1,49 @@
+name: opengym
+
+services:
+  api:
+    image: ghcr.io/duartesantos8/opengym-api:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PORT=${PORT:-3000}
+      - DATA_DIR=/data
+      - TRUST_PROXY=${TRUST_PROXY:-1}
+    volumes:
+      - opengym-data:/data
+      - opengym-coach-auth:/coach-auth
+
+  web:
+    image: ghcr.io/duartesantos8/opengym-web:latest
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - default
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.opengym-web.rule=Host(`opengym.bilheteriasbr.com.br`)"
+      - "traefik.http.routers.opengym-web.entrypoints=websecure"
+      - "traefik.http.routers.opengym-web.tls=true"
+      - "traefik.http.routers.opengym-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.opengym-web.loadbalancer.server.port=80"
+      - "traefik.docker.network=dokploy-network"
+    environment:
+      - NGINX_PORT=${NGINX_PORT:-80}
+      - BACKEND=${BACKEND:-api}
+      - PORT=${PORT:-3000}
+      - RESOLVER=${RESOLVER:-127.0.0.11}
+      - CF_CONNECTING_IP=${CF_CONNECTING_IP:-}
+      - BASE_PATH=${BASE_PATH:-}
+      - MEDIA_UPLOAD_MAX=${MEDIA_UPLOAD_MAX:-48m}
+
+networks:
+  default: {}
+  dokploy-network:
+    external: true
+
+volumes:
+  opengym-data:
+  opengym-coach-auth:
